@@ -1,0 +1,6 @@
+[package]
+name = "ydata"
+version = "0.1.0"
+authors = ["Nnwww <johndororo@gmail.com>"]
+
+[dependencies]
