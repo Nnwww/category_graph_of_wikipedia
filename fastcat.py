@@ -92,23 +92,22 @@ class FastCat(FastCatBase):
         return list(map(lambda res: res.decode('utf-8'), self.db.smembers('n:%s' % cat)))
 
 
-def get_child_categories(category, max_depth=1):
+def category_breadth_first_search(category, down=True, max_distance=1):
     f = FastCat()
-
     q = Queue()
     q.put((category, 0))
-
     res = list()
+    direction_of_travel = f.narrower if True else f.broader
 
     while not q.empty():
-        cat, depth = q.get()
-        if depth == max_depth:
+        cat, distance = q.get()
+        if distance == max_distance:
             break
 
-        child_categories = f.narrower(cat)
-        for c in child_categories:
-            q.put((c, depth + 1))
+        adjacent_categories = direction_of_travel(cat)
+        for c in adjacent_categories:
+            q.put((c, distance + 1))
 
-        res += child_categories
+        res += adjacent_categories
 
     return res

@@ -46,6 +46,7 @@ executables:
     - vector
     - resourcet
     - safe-exceptions
+    - async
 
 tests:
   hs-data-sepa-test:
