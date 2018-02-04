@@ -88,7 +88,7 @@ main = do
       Nothing -> pure ()
       Just x  -> case x of
                    Right l | V.length l == 1 -> yield . V.head $ l
-                   Left err -> pure ()
+                   Left err -> throwString $ "parse error: " <> err
                    Right l -> do
                      liftIO . putStrLn $
                        "Detect more than one parse by cassava at a time. check following contents: " <> show l
