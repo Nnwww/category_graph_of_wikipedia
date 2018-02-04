@@ -3,6 +3,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Main where
 import           Database.Redis
 import qualified Data.Vector as V
@@ -23,6 +24,7 @@ import qualified Data.Conduit.Combinators as CC
 import           Control.Concurrent.Async
 import           Control.Monad.Trans.Resource
 import           Control.Monad.IO.Class
+import           Control.Monad.State
 import           Control.Exception.Safe
 import           System.IO (hFileSize, withFile, IOMode(ReadMode))
 
@@ -45,11 +47,13 @@ instance ToRecord WikiEnTSV
 articleKeyHeader = (<>) "article:"
 separateTab = defaultDecodeOptions {decDelimiter = fromIntegral (ord '\t')}
 
-collectArticlesToRedis :: (MonadResource m) => Connection -> WikiEnTSV -> m ()
-collectArticlesToRedis conn tsvLine = liftIO $ do
+type YDataMonad = IO
+
+collectArticlesToRedis :: Connection -> WikiEnTSV -> YDataMonad ()
+collectArticlesToRedis conn tsvLine = do
   let categories = B.split (fromIntegral . ord $ ';') . category $ tsvLine
       addRelationOfCategoryToArticle = (flip sadd) ([entry tsvLine]) . articleKeyHeader
-  runRedis conn $ mapM_ addRelationOfCategoryToArticle categories
+  liftIO . runRedis conn $ mapM_ addRelationOfCategoryToArticle categories
 
 gigaByte = 1024 ^ 3
 handleRange h offset segSize bufferSize =
@@ -66,19 +70,26 @@ main = do
   where
     invCap :: Double
     invCap = (realToFrac 1) / (realToFrac numCapabilities)
+    seqYData :: ConduitM () B.ByteString YDataMonad () -> IO ()
     seqYData yDataSeqqer = do
       conn <- checkedConnect defaultConnectInfo
-      runConduitRes
+      runConduit
         $  yDataSeqqer
         .| CB.lines
         .| CC.map decodeToWikiEnTSV
-        .| CC.filter isRight .| CC.mapM rightOrDie
+        .| rightOrDie
         .| CC.filter ((== 0) . namespaceID) -- 0 is article. see https://en.wikipedia.org/wiki/Wikipedia:Namespace
         .| CC.mapM_ (collectArticlesToRedis conn)
     decodeToWikiEnTSV :: B.ByteString -> Either String (V.Vector WikiEnTSV)
     decodeToWikiEnTSV = decodeWith separateTab NoHeader . BL.fromStrict
-    rightOrDie :: (MonadThrow m, MonadResource m) => Either String (V.Vector WikiEnTSV) -> m WikiEnTSV
-    rightOrDie = \case
-      Right l | V.length l == 1 -> pure . V.head $ l
-      Left err -> throwString $ "decode tsv error:" <> err
-      otherwise -> throwString $ "conduit's flow rate error."
+    rightOrDie :: (MonadThrow m, MonadIO m) => ConduitM (Either String (V.Vector WikiEnTSV)) WikiEnTSV m ()
+    rightOrDie =
+      await >>= \case
+      Nothing -> pure ()
+      Just x  -> case x of
+                   Right l | V.length l == 1 -> yield . V.head $ l
+                   Left err -> pure ()
+                   Right l -> do
+                     liftIO . putStrLn $
+                       "Detect more than one parse by cassava at a time. check following contents: " <> show l
+                     CC.yieldMany l
