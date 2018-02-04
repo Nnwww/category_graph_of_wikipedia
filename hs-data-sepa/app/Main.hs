@@ -27,6 +27,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.State
 import           Control.Exception.Safe
 import           System.IO (hFileSize, withFile, IOMode(ReadMode))
+import           System.Environment (getArgs)
 
 data WikiEnTSV = WikiEnTSV
   { entryID            :: Int
@@ -62,15 +63,18 @@ handleRange h offset segSize bufferSize =
 
 main :: IO ()
 main = do
-  withFile "wikipedia-en.txt" ReadMode $ \h -> do
-    fileSize <- hFileSize h
-    let readSizeOfSegments = fileSize `div` (toInteger numCapabilities)
-    mapConcurrently_ seqYData
-      . map (\ratioOffset -> handleRange h (floor $ ratioOffset * (realToFrac fileSize)) readSizeOfSegments gigaByte)
-      . take numCapabilities $ enumFromThenTo @Double 0 invCap 1
+  args <- getArgs
+  lineProcess $ if length args == 1 then read @Int $ head args else numCapabilities
   where
-    invCap :: Double
-    invCap = (realToFrac 1) / (realToFrac numCapabilities)
+    lineProcess :: Int -> IO ()
+    lineProcess numProcess =
+      let invCap = 1 / (realToFrac numProcess) in
+        withFile "wikipedia-en.txt" ReadMode $ \h -> do
+          fileSize <- hFileSize h
+          let readSizeOfSegments = fileSize `div` (toInteger numProcess)
+          mapConcurrently_ seqYData
+            . map (\ratioOffset -> handleRange h (floor $ ratioOffset * (realToFrac fileSize)) readSizeOfSegments gigaByte)
+            . take numProcess $ enumFromThenTo @Double 0 invCap 1
     seqYData :: ConduitM () B.ByteString YDataMonad () -> IO ()
     seqYData yDataSeqqer = do
       conn <- checkedConnect defaultConnectInfo
