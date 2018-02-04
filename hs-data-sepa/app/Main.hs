@@ -49,8 +49,7 @@ collectArticlesToRedis :: (MonadResource m) => Connection -> WikiEnTSV -> m ()
 collectArticlesToRedis conn tsvLine = liftIO $ do
   let categories = B.split (fromIntegral . ord $ ';') . category $ tsvLine
       addRelationOfCategoryToArticle = (flip sadd) ([entry tsvLine]) . articleKeyHeader
-  runRedis conn $ do
-    mapM_ addRelationOfCategoryToArticle categories
+  runRedis conn $ mapM_ addRelationOfCategoryToArticle categories
 
 gigaByte = 1024 ^ 3
 handleRange h offset segSize bufferSize =
@@ -73,8 +72,8 @@ main = do
         $  yDataSeqqer
         .| CB.lines
         .| CC.map decodeToWikiEnTSV
-        .| CC.filter isRight
-        .| CC.mapM rightOrDie
+        .| CC.filter isRight .| CC.mapM rightOrDie
+        .| CC.filter ((== 0) . namespaceID) -- 0 is article. see https://en.wikipedia.org/wiki/Wikipedia:Namespace
         .| CC.mapM_ (collectArticlesToRedis conn)
     decodeToWikiEnTSV :: B.ByteString -> Either String (V.Vector WikiEnTSV)
     decodeToWikiEnTSV = decodeWith separateTab NoHeader . BL.fromStrict
