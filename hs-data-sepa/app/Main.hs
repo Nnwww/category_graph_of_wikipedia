@@ -47,7 +47,8 @@ instance ToRecord WikiEnTSV
 articleKeyHeader = (<>) "article:"
 separateTab = defaultDecodeOptions {decDelimiter = fromIntegral (ord '\t')}
 
-type YDataMonad = IO
+type YDataMonad = StateT YDataState IO
+type YDataState = Int
 
 collectArticlesToRedis :: Connection -> WikiEnTSV -> YDataMonad ()
 collectArticlesToRedis conn tsvLine = do
@@ -73,22 +74,27 @@ main = do
     seqYData :: ConduitM () B.ByteString YDataMonad () -> IO ()
     seqYData yDataSeqqer = do
       conn <- checkedConnect defaultConnectInfo
-      runConduit
+      (flip evalStateT 0) . runConduit
         $  yDataSeqqer
         .| CB.lines
-        .| CC.map decodeToWikiEnTSV
+        .| CC.mapM decodeToWikiEnTSV
         .| rightOrDie
         .| CC.filter ((== 0) . namespaceID) -- 0 is article. see https://en.wikipedia.org/wiki/Wikipedia:Namespace
         .| CC.mapM_ (collectArticlesToRedis conn)
-    decodeToWikiEnTSV :: B.ByteString -> Either String (V.Vector WikiEnTSV)
-    decodeToWikiEnTSV = decodeWith separateTab NoHeader . BL.fromStrict
-    rightOrDie :: (MonadThrow m, MonadIO m) => ConduitM (Either String (V.Vector WikiEnTSV)) WikiEnTSV m ()
+    decodeToWikiEnTSV :: B.ByteString -> YDataMonad (Either String (V.Vector WikiEnTSV))
+    decodeToWikiEnTSV line = do
+      modify' (+1)
+      pure . decodeWith separateTab NoHeader $ BL.fromStrict line
+    rightOrDie :: (MonadThrow m, MonadState YDataState m, MonadIO m)
+      => ConduitM (Either String (V.Vector WikiEnTSV)) WikiEnTSV m ()
     rightOrDie =
       await >>= \case
       Nothing -> pure ()
       Just x  -> case x of
                    Right l | V.length l == 1 -> yield . V.head $ l
-                   Left err -> throwString $ "parse error: " <> err
+                   Left err -> do
+                     lineNum <- Control.Monad.State.get
+                     throwString $ "parse error at line " <> show lineNum <> ": " <> err
                    Right l -> do
                      liftIO . putStrLn $
                        "Detect more than one parse by cassava at a time. check following contents: " <> show l
