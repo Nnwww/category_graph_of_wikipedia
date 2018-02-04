@@ -47,6 +47,7 @@ executables:
     - resourcet
     - safe-exceptions
     - async
+    - mtl
 
 tests:
   hs-data-sepa-test:
