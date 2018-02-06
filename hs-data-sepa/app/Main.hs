@@ -144,4 +144,4 @@ rightOrDie =
 main :: IO ()
 main = do
   args <- getArgs
-  lineProcess $ if length args == 1 then read @Int $ head args else numCapabilities
+  lineProcess $ if null args then numCapabilities else read @Int $ head args
