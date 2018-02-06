@@ -39,7 +39,6 @@ executables:
     - text
     - bytestring
     - hedis
-    - cassava
     - conduit
     - conduit-extra
     - conduit-combinators
