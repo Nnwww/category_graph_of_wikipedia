@@ -33,6 +33,8 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall
+    - -Werror
     - -O2
     dependencies:
     - hs-data-sepa
@@ -43,9 +45,7 @@ executables:
     - conduit-extra
     - conduit-combinators
     - vector
-    - resourcet
     - safe-exceptions
-    - async
     - mtl
 
 tests:

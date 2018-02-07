@@ -4,35 +4,20 @@
 {-# LANGUAGE StrictData        #-}
 {-# LANGUAGE TypeApplications  #-}
 module Main where
-import           Control.Concurrent.Async
 import           Control.Exception.Safe
 import           Control.Monad.IO.Class
 import           Control.Monad.State
-import           Control.Monad.Trans.Resource
 import qualified Data.ByteString              as B
-import qualified Data.ByteString.Lazy         as BL
-import           Data.Char                    (ord)
 import           Data.Conduit
 import qualified Data.Conduit.Binary          as CB
 import qualified Data.Conduit.Combinators     as CC
 import qualified Data.Conduit.Text            as CT
-import           Data.Either
 import           Data.Maybe
 import           Data.Monoid
-import           Data.Ratio
-import           Data.String
 import qualified Data.Text                    as T
 import qualified Data.Text.Encoding           as TE
-import qualified Data.Vector                  as V
 import           Database.Redis
-import           GHC.Conc                     (numCapabilities)
-import           GHC.Generics                 (Generic)
-import           GHC.Stack.Types              (CallStack, HasCallStack,
-                                               getCallStack)
-import           System.Environment           (getArgs)
-import           System.Exit
-import           System.IO                    (IOMode (ReadMode), hFileSize,
-                                               withFile)
+import           System.IO                    (IOMode (ReadMode), withFile)
 
 data WikiEnTSV = WikiEnTSV
   { entryID            :: Int
@@ -47,6 +32,7 @@ data WikiEnTSV = WikiEnTSV
   , redirect1          :: T.Text
   } deriving (Show)
 
+articleKeyHeader :: B.ByteString -> B.ByteString
 articleKeyHeader = (<>) "article:"
 
 type YDataMonad = StateT YDataState IO
@@ -59,19 +45,8 @@ collectArticlesToRedis conn tsvLine = do
         . articleKeyHeader . TE.encodeUtf8
   liftIO . runRedis conn $ mapM_ addRelationOfCategoryToArticle categories
 
-gigaByte = 1024 ^ 3
-handleRange h offset segSize bufferSize =
-  CB.sourceHandleRangeWithBuffer h (Just offset) (Just segSize) bufferSize
-
-lineProcess :: Int -> IO ()
-lineProcess numProcess =
-  withFile "wikipedia-en.txt" ReadMode $ \h -> do
-  fileSize <- hFileSize h
-  let invCap = 1 / realToFrac numProcess
-  let readSizeOfSegments = fileSize `div` toInteger numProcess
-  mapConcurrently_ seqYData
-    . map (\ratioOffset -> handleRange h (floor $ ratioOffset * realToFrac fileSize) readSizeOfSegments gigaByte)
-    . take numProcess $ enumFromThenTo @Double 0 invCap 1
+lineProcess :: IO ()
+lineProcess = withFile "wikipedia-en.txt" ReadMode $ (seqYData . CB.sourceHandle)
 
 seqYData :: ConduitM () B.ByteString YDataMonad () -> IO ()
 seqYData yDataSeqqer = do
@@ -89,13 +64,19 @@ last' :: T.Text -> Maybe Char
 last' t | T.length t > 0 = Just $ T.last t
 last' _ = Nothing
 
+equalLastChar :: Char -> T.Text -> Maybe Bool
+equalLastChar lastChar = fmap (== lastChar) . last'
+
 parseWikiEnTSV :: T.Text -> Either SomeException WikiEnTSV
 parseWikiEnTSV lineMaybeWithNewLine =
-  case (== '\n') <$> last' lineMaybeWithNewLine of
-    Just True  -> splitTSV . fst . fromJust . T.unsnoc $ lineMaybeWithNewLine
-    Just False -> splitTSV lineMaybeWithNewLine
-    Nothing    -> throwString "Parse Error: input is an empty."
+  splitTSV =<< unsnocIfEqLastChar '\r' =<< unsnocIfEqLastChar '\n' lineMaybeWithNewLine
   where
+    unsnocIfEqLastChar :: Char -> T.Text -> Either SomeException T.Text
+    unsnocIfEqLastChar lastChar line =
+      case equalLastChar lastChar line of
+        Just True  -> pure . fst . fromJust . T.unsnoc $ line
+        Just False -> pure line
+        Nothing    -> throwString "Parse Error: input is an empty."
     splitTSV line =
       let texts = T.splitOn "\t" line
           numTexts = length texts in
@@ -142,6 +123,4 @@ rightOrDie =
     throwString $ "parse error at line " <> show lineNum <> ": " <> show err
 
 main :: IO ()
-main = do
-  args <- getArgs
-  lineProcess $ if null args then numCapabilities else read @Int $ head args
+main = lineProcess
