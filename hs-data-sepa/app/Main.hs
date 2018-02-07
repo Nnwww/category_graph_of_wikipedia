@@ -46,7 +46,7 @@ collectArticlesToRedis _ tsvLine = do
         . articleKeyHeader . TE.encodeUtf8
   liftIO $ mapM_ addRelationOfCategoryToArticle categories
   where
-    sddd key val = show key <> " -> " <> show val
+    sddd key val = "debug record: " <> show key <> " -> " <> show val
 
 -- collectArticlesToRedis :: Connection -> WikiEnTSV -> YDataMonad ()
 -- collectArticlesToRedis conn tsvLine = do
@@ -65,9 +65,10 @@ seqYData yDataSeqqer = do
     $  yDataSeqqer
     .| CC.decodeUtf8
     .| CT.lines
-    .| CC.mapM_ (liftIO . putStrLn . T.unpack)
     .| decodeToWikiEnTSV
+    .| CC.mapM_ (liftIO . putStrLn . ("debug (decodedWikiEnTSV):" <>) . show)
     .| rightOrDie
+    .| CC.mapM_ (liftIO . putStrLn . ("debug (rightOrDie):" <>) . show)
     .| CC.filter ((== 0) . namespaceID) -- 0 is article. see https://en.wikipedia.org/wiki/Wikipedia:Namespace
     .| CC.mapM_ (collectArticlesToRedis conn)
 
@@ -120,18 +121,21 @@ decodeToWikiEnTSV :: (MonadThrow m, MonadState YDataState m)
   => ConduitM T.Text (Either SomeException WikiEnTSV) m ()
 decodeToWikiEnTSV = do
   lift $ modify' (+1)
-  awaitJust $ \line -> if T.null line
-    then pure ()
-    else yield $ parseWikiEnTSV line
+  awaitJust $ \line -> do
+    if T.null line then pure ()
+                   else yield $ parseWikiEnTSV line
+    decodeToWikiEnTSV
 
 rightOrDie :: (MonadThrow m, MonadState YDataState m, MonadIO m)
   => ConduitM (Either SomeException WikiEnTSV) WikiEnTSV m ()
 rightOrDie =
-  awaitJust $ \case
-  Right l -> yield l
-  Left err -> do
-    lineNum <- Control.Monad.State.get
-    throwString $ "parse error at line " <> show lineNum <> ": " <> show err
+  awaitJust $ \v -> logic v >> rightOrDie
+  where
+    logic = \case
+      Right l -> yield l
+      Left err -> do
+        lineNum <- lift $ Control.Monad.State.get
+        throwString $ "parse error at line " <> show lineNum <> ": " <> show err
 
 main :: IO ()
 main = do
