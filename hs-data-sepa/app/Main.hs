@@ -52,7 +52,7 @@ lineProcess fileName = withFile fileName ReadMode $ (seqYData . CB.sourceHandle)
 seqYData :: ConduitM () B.ByteString YDataMonad () -> IO ()
 seqYData yDataSeqqer = do
   conn <- checkedConnect defaultConnectInfo
-  flip evalStateT 0 . runConduit
+  numOfLine <- flip execStateT 0 . runConduit
     $  yDataSeqqer
     .| CC.decodeUtf8
     .| CT.lines
@@ -60,6 +60,8 @@ seqYData yDataSeqqer = do
     .| rightOrDie
     .| CC.filter ((== 0) . namespaceID) -- 0 is article. see https://en.wikipedia.org/wiki/Wikipedia:Namespace
     .| CC.mapM_ (collectArticlesToRedis conn)
+
+  putStrLn . ("The number of line processed: " <> ) . show $ numOfLine
 
 last' :: T.Text -> Maybe Char
 last' t | T.length t > 0 = Just $ T.last t
