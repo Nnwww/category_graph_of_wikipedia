@@ -54,8 +54,8 @@ seqYData yDataSeqqer = do
   conn <- checkedConnect defaultConnectInfo
   numOfLine <- flip execStateT 0 . runConduit
     $  yDataSeqqer
+    .| CB.lines
     .| CC.decodeUtf8
-    .| CT.lines
     .| decodeToWikiEnTSV
     .| rightOrDie
     .| CC.filter ((== 0) . namespaceID) -- 0 is article. see https://en.wikipedia.org/wiki/Wikipedia:Namespace
