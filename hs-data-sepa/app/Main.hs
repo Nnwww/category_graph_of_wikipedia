@@ -42,9 +42,18 @@ type YDataState = Int
 collectArticlesToRedis :: Connection -> WikiEnTSV -> YDataMonad ()
 collectArticlesToRedis conn tsvLine = do
   let categories = T.splitOn ";" . category $ tsvLine
-      addRelationOfCategoryToArticle = flip sadd [TE.encodeUtf8 $ entry tsvLine]
+      addRelationOfCategoryToArticle = putStrLn . flip sddd [TE.encodeUtf8 $ entry tsvLine]
         . articleKeyHeader . TE.encodeUtf8
-  liftIO . runRedis conn $ mapM_ addRelationOfCategoryToArticle categories
+  liftIO $ mapM_ addRelationOfCategoryToArticle categories
+  where
+    sddd key val = show key <> " -> " <> show val
+
+-- collectArticlesToRedis :: Connection -> WikiEnTSV -> YDataMonad ()
+-- collectArticlesToRedis conn tsvLine = do
+--   let categories = T.splitOn ";" . category $ tsvLine
+--       addRelationOfCategoryToArticle = flip sadd [TE.encodeUtf8 $ entry tsvLine]
+--         . articleKeyHeader . TE.encodeUtf8
+--   liftIO . runRedis conn $ mapM_ addRelationOfCategoryToArticle categories
 
 lineProcess :: String -> IO ()
 lineProcess fileName = withFile fileName ReadMode $ (seqYData . CB.sourceHandle)
@@ -56,6 +65,7 @@ seqYData yDataSeqqer = do
     $  yDataSeqqer
     .| CC.decodeUtf8
     .| CT.lines
+    .| CC.mapM_ (liftIO . putStrLn . T.unpack)
     .| decodeToWikiEnTSV
     .| rightOrDie
     .| CC.filter ((== 0) . namespaceID) -- 0 is article. see https://en.wikipedia.org/wiki/Wikipedia:Namespace
