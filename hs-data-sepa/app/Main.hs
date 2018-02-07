@@ -7,6 +7,7 @@ module Main where
 import           Control.Exception.Safe
 import           Control.Monad.IO.Class
 import           Control.Monad.State
+import           Data.Bifunctor
 import qualified Data.ByteString              as B
 import           Data.Conduit
 import qualified Data.Conduit.Binary          as CB
@@ -54,10 +55,9 @@ seqYData yDataSeqqer = do
   numOfLine <- flip execStateT 0 . runConduit
     $  yDataSeqqer
     .| CB.lines
-    .| CC.decodeUtf8
     .| decodeToWikiEnTSV
     .| reportErrorAndIgnoreIt
-    .| CC.filter ((== 0) . namespaceID) -- 0 is article. see https://en.wikipedia.org/wiki/Wikipedia:Namespace
+    .| CC.filter ((== 0) . namespaceID) -- Namespace 0 is article. see https://en.wikipedia.org/wiki/Wikipedia:Namespace
     .| CC.mapM_ (collectArticlesToRedis conn)
 
   putStrLn . ("The number of line processed: " <> ) . show $ numOfLine
@@ -107,17 +107,19 @@ awaitJust f =
     Nothing -> pure ()
     Just x -> f x
 
-decodeToWikiEnTSV :: (MonadThrow m, MonadState YDataState m)
-  => ConduitM T.Text (Either SomeException WikiEnTSV) m ()
+decodeToWikiEnTSV :: (MonadState YDataState m)
+  => ConduitM B.ByteString (Either SomeException WikiEnTSV) m ()
 decodeToWikiEnTSV = do
   lift $ modify' (+1)
   awaitJust $ \line -> do
-    if T.null line then pure ()
-                   else yield $ parseWikiEnTSV line
+    if B.null line then pure ()
+                   else yield $ parseWikiEnTSV
+                        =<< (first toException . TE.decodeUtf8')
+                        =<< pure line
     decodeToWikiEnTSV
 
-reportErrorAndIgnoreIt :: (MonadThrow m, MonadState YDataState m, MonadIO m)
-                       => ConduitM (Either SomeException WikiEnTSV) WikiEnTSV m ()
+reportErrorAndIgnoreIt :: (Exception e, MonadState YDataState m, MonadIO m)
+                       => ConduitM (Either e WikiEnTSV) WikiEnTSV m ()
 reportErrorAndIgnoreIt =
   awaitJust $ \v -> logic v >> reportErrorAndIgnoreIt
   where
