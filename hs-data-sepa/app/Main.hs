@@ -34,26 +34,17 @@ data WikiEnTSV = WikiEnTSV
   } deriving (Show)
 
 articleKeyHeader :: B.ByteString -> B.ByteString
-articleKeyHeader = (<>) "article:"
+articleKeyHeader = (<>) "category:"
 
 type YDataMonad = StateT YDataState IO
 type YDataState = Int
 
 collectArticlesToRedis :: Connection -> WikiEnTSV -> YDataMonad ()
-collectArticlesToRedis _ tsvLine = do
+collectArticlesToRedis conn tsvLine = do
   let categories = T.splitOn ";" . category $ tsvLine
-      addRelationOfCategoryToArticle = putStrLn . flip sddd [TE.encodeUtf8 $ entry tsvLine]
+      addRelationOfCategoryToArticle = flip sadd [TE.encodeUtf8 $ entry tsvLine]
         . articleKeyHeader . TE.encodeUtf8
-  liftIO $ mapM_ addRelationOfCategoryToArticle categories
-  where
-    sddd key val = "debug record: " <> show key <> " -> " <> show val
-
--- collectArticlesToRedis :: Connection -> WikiEnTSV -> YDataMonad ()
--- collectArticlesToRedis conn tsvLine = do
---   let categories = T.splitOn ";" . category $ tsvLine
---       addRelationOfCategoryToArticle = flip sadd [TE.encodeUtf8 $ entry tsvLine]
---         . articleKeyHeader . TE.encodeUtf8
---   liftIO . runRedis conn $ mapM_ addRelationOfCategoryToArticle categories
+  liftIO . runRedis conn $ mapM_ addRelationOfCategoryToArticle categories
 
 lineProcess :: String -> IO ()
 lineProcess fileName = withFile fileName ReadMode $ (seqYData . CB.sourceHandle)
@@ -66,9 +57,7 @@ seqYData yDataSeqqer = do
     .| CC.decodeUtf8
     .| CT.lines
     .| decodeToWikiEnTSV
-    .| CC.mapM_ (liftIO . putStrLn . ("debug (decodedWikiEnTSV):" <>) . show)
     .| rightOrDie
-    .| CC.mapM_ (liftIO . putStrLn . ("debug (rightOrDie):" <>) . show)
     .| CC.filter ((== 0) . namespaceID) -- 0 is article. see https://en.wikipedia.org/wiki/Wikipedia:Namespace
     .| CC.mapM_ (collectArticlesToRedis conn)
 
