@@ -11,7 +11,6 @@ import qualified Data.ByteString              as B
 import           Data.Conduit
 import qualified Data.Conduit.Binary          as CB
 import qualified Data.Conduit.Combinators     as CC
-import qualified Data.Conduit.Text            as CT
 import           Data.Maybe
 import           Data.Monoid
 import qualified Data.Text                    as T
