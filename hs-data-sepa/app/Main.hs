@@ -18,6 +18,7 @@ import qualified Data.Text                    as T
 import qualified Data.Text.Encoding           as TE
 import           Database.Redis
 import           System.IO                    (IOMode (ReadMode), withFile)
+import           System.Environment           (getArgs)
 
 data WikiEnTSV = WikiEnTSV
   { entryID            :: Int
@@ -45,8 +46,8 @@ collectArticlesToRedis conn tsvLine = do
         . articleKeyHeader . TE.encodeUtf8
   liftIO . runRedis conn $ mapM_ addRelationOfCategoryToArticle categories
 
-lineProcess :: IO ()
-lineProcess = withFile "wikipedia-en.txt" ReadMode $ (seqYData . CB.sourceHandle)
+lineProcess :: String -> IO ()
+lineProcess fileName = withFile fileName ReadMode $ (seqYData . CB.sourceHandle)
 
 seqYData :: ConduitM () B.ByteString YDataMonad () -> IO ()
 seqYData yDataSeqqer = do
@@ -123,4 +124,6 @@ rightOrDie =
     throwString $ "parse error at line " <> show lineNum <> ": " <> show err
 
 main :: IO ()
-main = lineProcess
+main = do
+  args <- getArgs
+  lineProcess $ if length args == 0 then "wikipedia-en.txt" else head args
