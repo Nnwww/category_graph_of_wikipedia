@@ -40,7 +40,7 @@ type YDataMonad = StateT YDataState IO
 type YDataState = Int
 
 collectArticlesToRedis :: Connection -> WikiEnTSV -> YDataMonad ()
-collectArticlesToRedis conn tsvLine = do
+collectArticlesToRedis _ tsvLine = do
   let categories = T.splitOn ";" . category $ tsvLine
       addRelationOfCategoryToArticle = putStrLn . flip sddd [TE.encodeUtf8 $ entry tsvLine]
         . articleKeyHeader . TE.encodeUtf8
