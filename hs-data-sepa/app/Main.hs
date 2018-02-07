@@ -56,7 +56,7 @@ seqYData yDataSeqqer = do
     .| CB.lines
     .| CC.decodeUtf8
     .| decodeToWikiEnTSV
-    .| rightOrDie
+    .| reportErrorAndIgnoreIt
     .| CC.filter ((== 0) . namespaceID) -- 0 is article. see https://en.wikipedia.org/wiki/Wikipedia:Namespace
     .| CC.mapM_ (collectArticlesToRedis conn)
 
@@ -85,8 +85,8 @@ parseWikiEnTSV lineMaybeWithNewLine =
         if numTexts /= 10 then
           throwString $
           "Parse Error: too " <>
-          (if numTexts > 10 then "many" else "few") <>
-          " field in a record.\n" <>
+          (if numTexts > 10 then "many"  else "few") <>
+          " field in a record. (" <> show numTexts <> " fields)\n" <>
           "input record: " <> show texts
         else
           Right WikiEnTSV { entryID            = read . T.unpack $ texts !! 0
@@ -116,16 +116,16 @@ decodeToWikiEnTSV = do
                    else yield $ parseWikiEnTSV line
     decodeToWikiEnTSV
 
-rightOrDie :: (MonadThrow m, MonadState YDataState m, MonadIO m)
-  => ConduitM (Either SomeException WikiEnTSV) WikiEnTSV m ()
-rightOrDie =
-  awaitJust $ \v -> logic v >> rightOrDie
+reportErrorAndIgnoreIt :: (MonadThrow m, MonadState YDataState m, MonadIO m)
+                       => ConduitM (Either SomeException WikiEnTSV) WikiEnTSV m ()
+reportErrorAndIgnoreIt =
+  awaitJust $ \v -> logic v >> reportErrorAndIgnoreIt
   where
     logic = \case
       Right l -> yield l
       Left err -> do
         lineNum <- lift $ Control.Monad.State.get
-        throwString $ "parse error at line " <> show lineNum <> ": " <> show err
+        liftIO . putStrLn $ "parse error at line " <> show lineNum <> ": " <> show err
 
 main :: IO ()
 main = do
