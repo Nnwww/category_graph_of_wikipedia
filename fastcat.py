@@ -91,6 +91,11 @@ class FastCat(FastCatBase):
         """
         return list(map(lambda res: res.decode('utf-8'), self.db.smembers('n:%s' % cat)))
 
+    def articles_in_category(self, cat):
+        """Pass in a Wikipedia category and get back a list of
+        Wikipedia articles beloging input.
+        """
+        return list(map(lambda res: res.decode('utf-8'), self.db.smembers('category:{}'.format(cat))))
 
 def category_breadth_first_search(category, down=True, max_distance=1):
     f = FastCat()
