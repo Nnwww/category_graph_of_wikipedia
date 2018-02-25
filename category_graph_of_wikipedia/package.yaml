@@ -1,0 +1,75 @@
+name:                category-graph-of-wikipedia
+version:             0.1.0.0
+github:              "githubuser/category-graph-of-wikipedia"
+license:             BSD3
+author:              "Author name here"
+maintainer:          "example@example.com"
+copyright:           "2018 Author name here"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on Github at <https://github.com/githubuser/category-graph-of-wikipedia#readme>
+
+dependencies:
+  - base                >= 4.7 && < 5
+  - text                >= 1.2.3.0 && < 1.2.4.0
+  - bytestring          >= 0.10.8.0 && < 0.10.9.0
+  - vector              >= 0.12.0.0 && < 0.12.1.0
+  - safe-exceptions     >= 0.1.6.0 && < 0.1.8.0
+  - mtl                 >= 2.2.0 && < 2.3.0
+  - hedis               >= 0.9.12 && < 0.10.0
+  - conduit             >= 1.2.0 && < 1.3.0
+  - conduit-extra       >= 1.2.0 && < 1.3.0
+  - conduit-combinators >= 1.1.0 && < 1.3.0
+
+library:
+  source-dirs: src
+
+executables:
+  ydata-viz:
+    main:                MainViz.hs
+    source-dirs:         app
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+      - -Wall
+      - -Werror
+      - -O2
+      - -main-is MainViz
+    dependencies:
+      - graphviz
+      - category-graph-of-wikipedia
+  ydata-sepa:
+    main:                MainSepa.hs
+    source-dirs:         app
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+      - -Wall
+      - -Werror
+      - -O2
+      - -main-is MainSepa
+    dependencies:
+      - category-graph-of-wikipedia
+
+tests:
+  ydata-sepa-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - ydata-sepa
