@@ -8,6 +8,7 @@ from urllib.request import urlretrieve
 from urllib.parse import unquote
 
 import redis
+import graphviz
 
 ntriple_pattern = re.compile('^<(.+)> <(.+)> <(.+)> \.\n$')
 
