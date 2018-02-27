@@ -1,18 +1,12 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE StrictData        #-}
-{-# LANGUAGE TypeApplications  #-}
 module Main where
-
-import           Control.Exception.Safe
+import           Lib
 import           System.FilePath
 import           System.Directory
 import           System.Environment
 import           Data.Maybe
 import           Data.Bifunctor
 import qualified Database.Redis                  as R
-import qualified Data.Map.Strict                 as M
+import qualified Data.HashMap.Strict             as M
 import           Data.Foldable
 import           Data.Semigroup
 import           Data.GraphViz.Attributes
@@ -40,11 +34,7 @@ prefixKeyCatTxt = TE.decodeUtf8 $ fromStrict prefixKeyCat
 graphIdInt :: Int -> GraphID
 graphIdInt = Num . Int
 
-partialEither :: (MonadThrow m, Show l) => Either l r -> m r
-partialEither (Left vl) = throwString $ show vl
-partialEither (Right vr) = pure vr
 
-type OneToMany a f = M.Map a (f a)
 
 readRelOfOneToMany :: R.Connection -> B.ByteString -> IO (OneToMany T.Text [])
 readRelOfOneToMany conn keyPattern = do

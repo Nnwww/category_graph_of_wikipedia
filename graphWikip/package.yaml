@@ -19,6 +19,14 @@ extra-source-files:
 # common to point users to the README.md file.
 description:         Please see the README on Github at <https://github.com/githubuser/graphWikip#readme>
 
+default-extensions:
+  - FlexibleContexts
+  - LambdaCase
+  - OverloadedStrings
+  - StrictData
+  - TypeApplications
+  - TupleSections
+
 dependencies:
   - base >= 4.7 && < 5
   - text
@@ -27,6 +35,8 @@ dependencies:
   - safe-exceptions
   - mtl
   - hedis
+  - containers
+  - unordered-containers
 
 library:
   source-dirs: src
@@ -47,7 +57,6 @@ executables:
       - -Wredundant-constraints
       - -O2
     dependencies:
-      - containers
       - filepath
       - directory
       - graphviz
