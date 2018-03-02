@@ -1,23 +1,24 @@
 module Main where
-import           Lib
-import           System.FilePath
-import           System.Directory
-import           System.Environment
-import           Data.Maybe
+import           Control.Monad (void)
 import           Data.Bifunctor
-import qualified Database.Redis                  as R
-import qualified Data.HashMap.Strict             as M
+import qualified Data.ByteString as B
+import           Data.ByteString.Lazy (fromStrict)
 import           Data.Foldable
-import           Data.Semigroup
 import           Data.GraphViz.Attributes
 import           Data.GraphViz.Commands
 import           Data.GraphViz.Types
-import           Data.GraphViz.Types.Monadic
 import qualified Data.GraphViz.Types.Generalised as G
-import qualified Data.Text.Lazy                  as T
-import qualified Data.Text.Lazy.Encoding         as TE
-import qualified Data.ByteString                 as B
-import           Data.ByteString.Lazy               (fromStrict)
+import           Data.GraphViz.Types.Monadic
+import qualified Data.HashMap.Strict as M
+import           Data.Maybe
+import           Data.Semigroup
+import qualified Data.Text.Lazy as T
+import qualified Data.Text.Lazy.Encoding as TE
+import qualified Database.Redis as R
+import           Lib
+import           System.Directory
+import           System.Environment
+import           System.FilePath
 
 prefixKeyBroader :: B.ByteString
 prefixKeyBroader = "b:"
@@ -33,8 +34,6 @@ prefixKeyCatTxt = TE.decodeUtf8 $ fromStrict prefixKeyCat
 
 graphIdInt :: Int -> GraphID
 graphIdInt = Num . Int
-
-
 
 readRelOfOneToMany :: R.Connection -> B.ByteString -> IO (OneToMany T.Text [])
 readRelOfOneToMany conn keyPattern = do
@@ -84,7 +83,7 @@ main = do
   putStrLn ("output file path: " <> outputPdfPath)
   articlesInCategory <- readRelOfOneToMany conn categoryPattern
   broaderRel <- readRelOfOneToMany conn broaderPattern
-  const () <$> runGraphviz (drawGraph articlesInCategory broaderRel) Pdf outputPdfPath
+  void $ runGraphviz (drawGraph articlesInCategory broaderRel) Pdf outputPdfPath
   where
     categoryPattern = prefixKeyCat <> "*"
     broaderPattern = prefixKeyBroader <> "*"

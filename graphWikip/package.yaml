@@ -26,6 +26,9 @@ default-extensions:
   - StrictData
   - TypeApplications
   - TupleSections
+  - BangPatterns
+  - NamedFieldPuns
+  - RecordWildCards
 
 dependencies:
   - base >= 4.7 && < 5
